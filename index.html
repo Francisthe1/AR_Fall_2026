@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Babylon.js Sinusoidal AR</title>
+    <!-- Babylon.js Core and GUI CDNs -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        const createScene = async function () {
+            const scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.95, 0.95, 0.95, 1);
+
+            // Camera and Lights
+            const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 3, 5, new BABYLON.Vector3(0, 1.5, 0), scene);
+            camera.attachControl(canvas, true);
+
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            const dirLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-1, -2, -1), scene);
+            dirLight.position = new BABYLON.Vector3(2, 4, 2);
+
+            // Ball
+            const sphere = BABYLON.MeshBuilder.CreateSphere("sphere", { diameter: 1, segments: 32 }, scene);
+            const basePos = new BABYLON.Vector3(0, 1.5, 0);
+            sphere.position = basePos.clone();
+
+            const pbrMat = new BABYLON.PBRMaterial("pbrMat", scene);
+            pbrMat.metallic = 0.9;
+            pbrMat.roughness = 0.15;
+            pbrMat.albedoColor = new BABYLON.Color3(0.85, 0.85, 0.85);
+            sphere.material = pbrMat;
+
+            // Control Info
+            const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+            const textBlock = new BABYLON.GUI.TextBlock();
+            textBlock.text = "Press A to change colour\nPress B to change position\nPress C to change scale";
+            textBlock.color = "#222222";
+            textBlock.fontSize = 18;
+            textBlock.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+            textBlock.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+            textBlock.paddingLeft = "20px";
+            textBlock.paddingTop = "20px";
+            advancedTexture.addControl(textBlock);
+
+            // Animation States
+            let alpha = 0;
+            let animateColor = false;
+            let animatePosition = false;
+            let animateScale = false;
+
+            scene.onBeforeRenderObservable.add(() => {
+                alpha += 0.05;
+
+                if (animateColor) {
+                    let hue = ((Math.sin(alpha) + 1) / 2) * 360;
+                    pbrMat.albedoColor = BABYLON.Color3.FromHSV(hue, 0.8, 0.9);
+                } else {
+                    pbrMat.albedoColor = new BABYLON.Color3(0.85, 0.85, 0.85);
+                }
+
+                if (animatePosition) {
+                    sphere.position.z = basePos.z + Math.sin(alpha) * 1.5;
+                } else {
+                    sphere.position.z = basePos.z;
+                }
+
+                if (animateScale) {
+                    sphere.scaling.setAll(2 + Math.sin(alpha));
+                } else {
+                    sphere.scaling.setAll(1.0);
+                }
+            });
+
+            scene.onKeyboardObservable.add((kbInfo) => {
+                if (kbInfo.type === BABYLON.KeyboardEventTypes.KEYDOWN) {
+                    const key = kbInfo.event.key.toLowerCase();
+                    if (key === "a") animateColor = !animateColor;
+                    if (key === "b") animatePosition = !animatePosition;
+                    if (key === "c") animateScale = !animateScale;
+                }
+            });
+
+            try {
+                await scene.createDefaultXRExperienceAsync({
+                    uiOptions: { sessionMode: "immersive-ar" }
+                });
+            } catch (e) {
+                console.log("WebXR not available");
+            }
+
+            return scene;
+        };
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(() => {
+                scene.render();
+            });
+        });
+
+        window.addEventListener("resize", () => {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
